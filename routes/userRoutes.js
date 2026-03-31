@@ -58,7 +58,7 @@ router.get("/users/:id", async (req, res) => {
 });
 
 // Update user by Id
-router.put("users/:id", async (req, res) => {
+router.put("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const updatedUser = await user.findByIdAndUpdate(id, req.body, {
@@ -67,6 +67,7 @@ router.put("users/:id", async (req, res) => {
     if (!updatedUser) {
       return res.status(404).json({ error: "User not found" });
     }
+    res.status(200).json(updatedUser);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -74,7 +75,7 @@ router.put("users/:id", async (req, res) => {
 f;
 
 //delete a user
-router.delete("users/:id", async (req, res) => {
+router.delete("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const deletedUser = await user.findByIdAndDelete(id);
