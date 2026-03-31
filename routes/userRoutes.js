@@ -14,4 +14,30 @@ router.post("/users", async (req, res) => {
   }
 });
 
-module.exports = router;    
+// Get all users
+router.get("/users", async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    let query = {};
+    if (search) {
+      query = {
+        $or: [
+          {
+            name: { $regex: search, $options: "i" },
+          },
+          {
+            email: { $regex: search, $options: "i" },
+          },
+        ],
+      };
+    }
+
+    const users = await user.find(query);
+    res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
