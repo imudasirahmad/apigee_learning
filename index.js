@@ -13,6 +13,6 @@ mongoose.connect("mongodb://localhost:27017/api-learning")
 app.use("/api", userRoutes);
 
 
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+app.listen(3001, () => {
+  console.log("Server running on port 3001");
 }); 

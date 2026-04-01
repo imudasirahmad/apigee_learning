@@ -61,11 +61,11 @@ router.get("/users", async (req, res) => {
 router.get("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const userData = await User.findById(id);
+    const userData = await User.findById(id).select("-password");
     if (!userData) {
       return res.status(404).json({ error: "User not found" });
     }
-    res.status(200).json(userData).select("-password");
+    res.status(200).json(userData);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
