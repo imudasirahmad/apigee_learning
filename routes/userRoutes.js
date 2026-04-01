@@ -2,6 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 const User = require("../models/User");
+const bcrypt = require("bcrypt");
 
 // Create a new user
 router.post("/users", async (req, res) => {
@@ -9,13 +10,19 @@ router.post("/users", async (req, res) => {
     if (!req.body.email || !req.body.password || !req.body.name) {
       return res.status(400).json({ error: "Required fields missing" });
     }
-    const existingUser = await User.findOne({ email: req.body.email });
+    const email = req.body.email.toLowerCase();
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: "Email already exists" });
     }
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    req.body.password = hashedPassword;
+    req.body.email = email;
     const newUser = new User(req.body);
     const savedUser = await newUser.save();
-    res.status(201).json(savedUser).select("-password");
+    const userResponse = savedUser.toObject();
+    delete userResponse.password;
+    res.status(201).json(userResponse);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -40,11 +47,11 @@ router.get("/users", async (req, res) => {
       };
     }
 
-    const users = await User.find(query);
+    const users = await User.find(query).select("-password");
     if (users.length === 0) {
       return res.status(404).json({ error: "No users found" });
     }
-    res.status(200).json(users).select("-password");
+    res.status(200).json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
