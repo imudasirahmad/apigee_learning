@@ -1,14 +1,21 @@
 const express = require("express");
 
 const router = express.Router();
-const user = require("../models/User");
+const User = require("../models/User");
 
 // Create a new user
 router.post("/users", async (req, res) => {
   try {
-    const newUser = new user(req.body);
+    if (!req.body.email || !req.body.password || !req.body.name) {
+      return res.status(400).json({ error: "Required fields missing" });
+    }
+    const existingUser = await User.findOne({ email: req.body.email });
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already exists" });
+    }
+    const newUser = new User(req.body);
     const savedUser = await newUser.save();
-    res.status(201).json(savedUser);
+    res.status(201).json(savedUser).select("-password");
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -33,11 +40,11 @@ router.get("/users", async (req, res) => {
       };
     }
 
-    const users = await user.find(query);
+    const users = await User.find(query);
     if (users.length === 0) {
       return res.status(404).json({ error: "No users found" });
     }
-    res.status(200).json(users);
+    res.status(200).json(users).select("-password");
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -47,11 +54,11 @@ router.get("/users", async (req, res) => {
 router.get("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const userData = await user.findById(id);
+    const userData = await User.findById(id);
     if (!userData) {
       return res.status(404).json({ error: "User not found" });
     }
-    res.status(200).json(userData);
+    res.status(200).json(userData).select("-password");
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -61,9 +68,9 @@ router.get("/users/:id", async (req, res) => {
 router.put("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedUser = await user.findByIdAndUpdate(id, req.body, {
+    const updatedUser = await User.findByIdAndUpdate(id, req.body, {
       new: true,
-    });
+    }).select("-password");
     if (!updatedUser) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -73,12 +80,11 @@ router.put("/users/:id", async (req, res) => {
   }
 });
 
-
 //delete a user
 router.delete("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedUser = await user.findByIdAndDelete(id);
+    const deletedUser = await User.findByIdAndDelete(id);
     if (!deletedUser) {
       return res.status(404).json({ error: "User not found" });
     }
