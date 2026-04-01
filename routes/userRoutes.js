@@ -72,7 +72,7 @@ router.put("/users/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-f;
+
 
 //delete a user
 router.delete("/users/:id", async (req, res) => {
