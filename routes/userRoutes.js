@@ -2,35 +2,13 @@ const express = require("express");
 
 const router = express.Router();
 const User = require("../models/User");
+const authenticateToken = require("../middleware/auth");
+const role = require("../middleware/role");
 const BlacklistedToken = require("../models/BlacklistedToken");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-
-// Middleware to authenticate JWT token
-const authenticateToken = async (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Access token required" });
-
-  try {
-    // Check if token is blacklisted
-    const blacklisted = await BlacklistedToken.findOne({ token });
-    if (blacklisted) {
-      return res.status(403).json({ error: "Token expired" });
-    }
-
-    // Verify token
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-      if (err) return res.status(403).json({ error: "Invalid token" });
-      req.user = user;
-      next();
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
 
 // Create a new user
 router.post("/users", async (req, res) => {
@@ -57,7 +35,7 @@ router.post("/users", async (req, res) => {
 });
 
 // Get all users
-router.get("/users", authenticateToken, async (req, res) => {
+router.get("/users", authenticateToken, role("admin"), async (req, res) => {
   try {
     const { search } = req.query;
     if (search && typeof search !== "string") {
@@ -221,7 +199,7 @@ router.post("/login", async (req, res) => {
     }
     const userResponse = user.toObject();
     delete userResponse.password;
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user._id, role: user.role}, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
     res.status(200).json({ user: userResponse, token });
