@@ -8,6 +8,7 @@ const BlacklistedToken = require("../models/BlacklistedToken");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
+const { loginLimiter } = require("../middleware/rateLimiters");
 require("dotenv").config();
 
 // Create a new user
@@ -183,7 +184,7 @@ router.delete("/users/:id", authenticateToken, async (req, res) => {
 });
 
 //login API
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
