@@ -221,4 +221,17 @@ router.post("/users/:id/change-password", authenticateToken, async (req, res) =>
   }
 });
 
+// Get current user profile
+router.get("/me", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ _id: req.user.userId, isDeleted: false }).select("-password");
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.status(200).json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
