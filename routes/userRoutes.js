@@ -5,15 +5,15 @@ const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
-require('dotenv').config();
+require("dotenv").config();
 
 // Middleware to authenticate JWT token
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Access token required' });
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Access token required" });
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid token' });
+    if (err) return res.status(403).json({ error: "Invalid token" });
     req.user = user;
     next();
   });
@@ -101,7 +101,38 @@ router.get("/users/:id", authenticateToken, async (req, res) => {
 });
 
 // Update user by Id
-router.put("/users/:id", authenticateToken, async (req, res) => {
+// router.put("/users/:id", authenticateToken, async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return res.status(400).json({ error: "Invalid user ID" });
+//     }
+
+//     if (Object.keys(req.body).length === 0) {
+//       return res.status(400).json({ error: "No data provided" });
+//     }
+
+//     if (req.body.password) {
+//       return res
+//         .status(400)
+//         .json({ error: "Use dedicated endpoint to update password" });
+//     }
+//     const updatedUser = await User.findOneAndUpdate(
+//       { _id: id, isDeleted: false },
+//       req.body,
+//       {
+//         new: true,
+//       },
+//     ).select("-password");
+//     if (!updatedUser) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+//     res.status(200).json(updatedUser);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+router.patch("/users/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -117,16 +148,17 @@ router.put("/users/:id", authenticateToken, async (req, res) => {
         .status(400)
         .json({ error: "Use dedicated endpoint to update password" });
     }
-    const updatedUser = await User.findOneAndUpdate(
-      { _id: id, isDeleted: false },
-      req.body,
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { $set: req.body }, // partial update
       {
         new: true,
       },
     ).select("-password");
-    if (!updatedUser) {
+     if (!updatedUser) {
       return res.status(404).json({ error: "User not found" });
     }
+
     res.status(200).json(updatedUser);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -186,45 +218,55 @@ router.post("/login", async (req, res) => {
 });
 
 //change password API
-router.post("/users/:id/change-password", authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { oldPassword, newPassword } = req.body;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid user ID" });
+router.post(
+  "/users/:id/change-password",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { oldPassword, newPassword } = req.body;
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ error: "Invalid user ID" });
+      }
+      if (!oldPassword || !newPassword) {
+        return res
+          .status(400)
+          .json({ error: "Old password and new password are required" });
+      }
+      const user = await User.findOne({ _id: id, isDeleted: false });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      const isOldPasswordValid = await bcrypt.compare(
+        oldPassword,
+        user.password,
+      );
+      if (!isOldPasswordValid) {
+        return res.status(400).json({ error: "Old password is incorrect" });
+      }
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+      const updatedUser = await User.findOneAndUpdate(
+        { _id: id, isDeleted: false },
+        { password: hashedNewPassword },
+        { new: true },
+      ).select("-password");
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.status(200).json({ message: "Password updated successfully" });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-    if (!oldPassword || !newPassword) {
-      return res
-        .status(400)
-        .json({ error: "Old password and new password are required" });
-    }
-    const user = await User.findOne({ _id: id, isDeleted: false });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-    const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
-    if (!isOldPasswordValid) {
-      return res.status(400).json({ error: "Old password is incorrect" });
-    }
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    const updatedUser = await User.findOneAndUpdate(
-      { _id: id, isDeleted: false },
-      { password: hashedNewPassword },
-      { new: true },
-    ).select("-password");
-    if (!updatedUser) {
-      return res.status(404).json({ error: "User not found" });
-    }
-    res.status(200).json({ message: "Password updated successfully" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  },
+);
 
 // Get current user profile
 router.get("/me", authenticateToken, async (req, res) => {
   try {
-    const user = await User.findOne({ _id: req.user.userId, isDeleted: false }).select("-password");
+    const user = await User.findOne({
+      _id: req.user.userId,
+      isDeleted: false,
+    }).select("-password");
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
