@@ -2,21 +2,34 @@ const express = require("express");
 
 const router = express.Router();
 const User = require("../models/User");
+const BlacklistedToken = require("../models/BlacklistedToken");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 // Middleware to authenticate JWT token
-const authenticateToken = (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Access token required" });
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: "Invalid token" });
-    req.user = user;
-    next();
-  });
+
+  try {
+    // Check if token is blacklisted
+    const blacklisted = await BlacklistedToken.findOne({ token });
+    if (blacklisted) {
+      return res.status(403).json({ error: "Token expired" });
+    }
+
+    // Verify token
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+      if (err) return res.status(403).json({ error: "Invalid token" });
+      req.user = user;
+      next();
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
 // Create a new user
@@ -276,4 +289,21 @@ router.get("/me", authenticateToken, async (req, res) => {
   }
 });
 
+
+//logout API
+router.post("/logout", authenticateToken, async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (token) {
+    try {
+      const expiresAt = new Date(req.user.exp * 1000);
+      await BlacklistedToken.create({ token, expiresAt });
+      res.status(200).json({ message: "Logged out successfully." });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  } else {
+    res.status(400).json({ error: "No token provided" });
+  }
+});
 module.exports = router;
