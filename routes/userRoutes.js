@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
+const mongoose = require("mongoose");
 
 // Create a new user
 router.post("/users", async (req, res) => {
@@ -32,11 +33,13 @@ router.post("/users", async (req, res) => {
 router.get("/users", async (req, res) => {
   try {
     const { search } = req.query;
-    if(search && typeof search !== "string") {
+    if (search && typeof search !== "string") {
       return res.status(400).json({ error: "Search query must be a string" });
     }
-    if(search.length < 3){
-      return res.status(400).json({ error: "Search query must be at least 3 characters long" });
+    if (search.length < 3) {
+      return res
+        .status(400)
+        .json({ error: "Search query must be at least 3 characters long" });
     }
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -70,6 +73,9 @@ router.get("/users", async (req, res) => {
 router.get("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
     const userData = await User.findById(id).select("-password");
     if (!userData) {
       return res.status(404).json({ error: "User not found" });
@@ -84,6 +90,15 @@ router.get("/users/:id", async (req, res) => {
 router.put("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    if (req.body.password) {
+      return res
+        .status(400)
+        .json({ error: "Use dedicated endpoint to update password" });
+    }
     const updatedUser = await User.findByIdAndUpdate(id, req.body, {
       new: true,
     }).select("-password");
