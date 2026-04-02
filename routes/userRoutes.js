@@ -75,6 +75,9 @@ router.get("/users", authenticateToken, role("admin"), async (req, res) => {
 //Get user by Id
 router.get("/users/:id", authenticateToken, async (req, res) => {
   try {
+    if (req.user.role !== "admin" && req.user.id !== req.params.id) {
+    return res.status(403).json({ error: "Access denied" });
+    }
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid user ID" });
