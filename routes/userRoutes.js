@@ -138,4 +138,29 @@ router.delete("/users/:id", async (req, res) => {
   }
 });
 
+
+//login API
+router.post("/login", async (req , res) => {
+  try{
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+    const user = await User.findOne({ email: email.toLowerCase(), isDeleted: false });
+    if (!user) {
+      return res.status(400).json({ error: "Invalid email or password" });
+    }
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ error: "Invalid password" });
+    }
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    res.status(200).json(userResponse);
+  }catch(err){
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+  
