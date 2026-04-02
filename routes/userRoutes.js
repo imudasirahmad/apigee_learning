@@ -7,6 +7,18 @@ const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 require('dotenv').config();
 
+// Middleware to authenticate JWT token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Access token required' });
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Invalid token' });
+    req.user = user;
+    next();
+  });
+};
+
 // Create a new user
 router.post("/users", async (req, res) => {
   try {
@@ -32,7 +44,7 @@ router.post("/users", async (req, res) => {
 });
 
 // Get all users
-router.get("/users", async (req, res) => {
+router.get("/users", authenticateToken, async (req, res) => {
   try {
     const { search } = req.query;
     if (search && typeof search !== "string") {
@@ -70,7 +82,7 @@ router.get("/users", async (req, res) => {
 });
 
 //Get user by Id
-router.get("/users/:id", async (req, res) => {
+router.get("/users/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -89,7 +101,7 @@ router.get("/users/:id", async (req, res) => {
 });
 
 // Update user by Id
-router.put("/users/:id", async (req, res) => {
+router.put("/users/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -122,7 +134,7 @@ router.put("/users/:id", async (req, res) => {
 });
 
 //delete a user
-router.delete("/users/:id", async (req, res) => {
+router.delete("/users/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -174,7 +186,7 @@ router.post("/login", async (req, res) => {
 });
 
 //change password API
-router.post("/users/:id/change-password", async (req, res) => {
+router.post("/users/:id/change-password", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { oldPassword, newPassword } = req.body;
