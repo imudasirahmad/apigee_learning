@@ -36,7 +36,7 @@ router.get("/users", async (req, res) => {
     if (search && typeof search !== "string") {
       return res.status(400).json({ error: "Search query must be a string" });
     }
-    if (search.length < 3) {
+    if (search && search.length < 3) {
       return res
         .status(400)
         .json({ error: "Search query must be at least 3 characters long" });
@@ -44,18 +44,16 @@ router.get("/users", async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-    let query = {};
+    let query = { isDeleted: false };
     if (search) {
-      query = {
-        $or: [
-          {
-            name: { $regex: search, $options: "i" },
-          },
-          {
-            email: { $regex: search, $options: "i" },
-          },
-        ],
-      };
+      query.$or = [
+        {
+          name: { $regex: search, $options: "i" },
+        },
+        {
+          email: { $regex: search, $options: "i" },
+        },
+      ];
     }
 
     const users = await User.find(query)
@@ -76,7 +74,7 @@ router.get("/users/:id", async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
-    const userData = await User.findById(id).select("-password");
+    const userData = await User.findOne({ _id: id, isDeleted: false }).select("-password");
     if (!userData) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -103,9 +101,13 @@ router.put("/users/:id", async (req, res) => {
         .status(400)
         .json({ error: "Use dedicated endpoint to update password" });
     }
-    const updatedUser = await User.findByIdAndUpdate(id, req.body, {
-      new: true,
-    }).select("-password");
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      req.body,
+      {
+        new: true,
+      }
+    ).select("-password");
     if (!updatedUser) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -122,9 +124,13 @@ router.delete("/users/:id", async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
-    const deletedUser = await User.findByIdAndDelete(id);
+    const deletedUser = await User.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      { isDeleted: true },
+      { new: true }
+    );
     if (!deletedUser) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found or already deleted" });
     }
     res.status(200).json({ message: "User deleted successfully" });
   } catch (err) {
