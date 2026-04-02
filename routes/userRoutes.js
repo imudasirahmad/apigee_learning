@@ -74,7 +74,9 @@ router.get("/users/:id", async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
-    const userData = await User.findOne({ _id: id, isDeleted: false }).select("-password");
+    const userData = await User.findOne({ _id: id, isDeleted: false }).select(
+      "-password",
+    );
     if (!userData) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -92,8 +94,8 @@ router.put("/users/:id", async (req, res) => {
       return res.status(400).json({ error: "Invalid user ID" });
     }
 
-    if(Object.keys(req.body).length ===0){
-        return res.status(400).json({ error: "No data provided" });
+    if (Object.keys(req.body).length === 0) {
+      return res.status(400).json({ error: "No data provided" });
     }
 
     if (req.body.password) {
@@ -106,7 +108,7 @@ router.put("/users/:id", async (req, res) => {
       req.body,
       {
         new: true,
-      }
+      },
     ).select("-password");
     if (!updatedUser) {
       return res.status(404).json({ error: "User not found" });
@@ -127,10 +129,12 @@ router.delete("/users/:id", async (req, res) => {
     const deletedUser = await User.findOneAndUpdate(
       { _id: id, isDeleted: false },
       { isDeleted: true },
-      { new: true }
+      { new: true },
     );
     if (!deletedUser) {
-      return res.status(404).json({ error: "User not found or already deleted" });
+      return res
+        .status(404)
+        .json({ error: "User not found or already deleted" });
     }
     res.status(200).json({ message: "User deleted successfully" });
   } catch (err) {
@@ -138,15 +142,17 @@ router.delete("/users/:id", async (req, res) => {
   }
 });
 
-
 //login API
-router.post("/login", async (req , res) => {
-  try{
+router.post("/login", async (req, res) => {
+  try {
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
     }
-    const user = await User.findOne({ email: email.toLowerCase(), isDeleted: false });
+    const user = await User.findOne({
+      email: email.toLowerCase(),
+      isDeleted: false,
+    });
     if (!user) {
       return res.status(400).json({ error: "Invalid email or password" });
     }
@@ -157,10 +163,43 @@ router.post("/login", async (req , res) => {
     const userResponse = user.toObject();
     delete userResponse.password;
     res.status(200).json(userResponse);
-  }catch(err){
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//change password API
+router.post("/users/:id/change-password", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { oldPassword, newPassword } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ error: "Old password and new password are required" });
+    }
+    const user = await User.findOne({ _id: id, isDeleted: false });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      return res.status(400).json({ error: "Old password is incorrect" });
+    }
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      { password: hashedNewPassword },
+      { new: true },
+    ).select("-password");
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.status(200).json({ message: "Password updated successfully" });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 module.exports = router;
-  
