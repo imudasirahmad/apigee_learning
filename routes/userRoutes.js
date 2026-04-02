@@ -32,6 +32,14 @@ router.post("/users", async (req, res) => {
 router.get("/users", async (req, res) => {
   try {
     const { search } = req.query;
+    if(search && typeof search !== "string") {
+      return res.status(400).json({ error: "Search query must be a string" });
+    }
+    if(search.length < 3){
+      return res.status(400).json({ error: "Search query must be at least 3 characters long" });
+    }
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
 
     let query = {};
     if (search) {
@@ -47,10 +55,11 @@ router.get("/users", async (req, res) => {
       };
     }
 
-    const users = await User.find(query).select("-password");
-    if (users.length === 0) {
-      return res.status(404).json({ error: "No users found" });
-    }
+    const users = await User.find(query)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .select("-password");
+
     res.status(200).json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
