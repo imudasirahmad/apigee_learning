@@ -94,6 +94,10 @@ router.put("/users/:id", async (req, res) => {
       return res.status(400).json({ error: "Invalid user ID" });
     }
 
+    if(Object.keys(req.body).length ===0){
+        return res.status(400).json({ error: "No data provided" });
+    }
+
     if (req.body.password) {
       return res
         .status(400)
@@ -115,6 +119,9 @@ router.put("/users/:id", async (req, res) => {
 router.delete("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
     const deletedUser = await User.findByIdAndDelete(id);
     if (!deletedUser) {
       return res.status(404).json({ error: "User not found" });
