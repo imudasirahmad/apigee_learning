@@ -4,6 +4,8 @@ const router = express.Router();
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
+require('dotenv').config();
 
 // Create a new user
 router.post("/users", async (req, res) => {
@@ -162,7 +164,10 @@ router.post("/login", async (req, res) => {
     }
     const userResponse = user.toObject();
     delete userResponse.password;
-    res.status(200).json(userResponse);
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+    res.status(200).json({ user: userResponse, token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -177,7 +182,9 @@ router.post("/users/:id/change-password", async (req, res) => {
       return res.status(400).json({ error: "Invalid user ID" });
     }
     if (!oldPassword || !newPassword) {
-      return res.status(400).json({ error: "Old password and new password are required" });
+      return res
+        .status(400)
+        .json({ error: "Old password and new password are required" });
     }
     const user = await User.findOne({ _id: id, isDeleted: false });
     if (!user) {
